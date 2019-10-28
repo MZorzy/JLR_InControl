@@ -35,10 +35,12 @@ class JLRSensor(JLREntity):
             return None
 
         if self._attribute in ['last_connected', 'service_inspection',
-                               'oil_inspection']:
+                               'oil_inspection', 'THEFT_ALARM_STATUS']:
+
             return str(val)
         if self._attribute in ['ODOMETER_METER']:
-            return float(int(val) / 1000)
+            return float(int(int(val) / 1000))
+
 
         return int(float(val))
 
