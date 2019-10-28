@@ -1,177 +1,318 @@
-"""
-Support for Tesla cars.
-
-For more details about this component, please refer to the documentation at
-https://home-assistant.io/components/tesla/
-"""
+"""Support for Jaguar/Land Rover InControl services."""
 import logging
 from datetime import timedelta
+import urllib.error
 import voluptuous as vol
-
+import jlrpy
+from homeassistant.core import callback
+import homeassistant.helpers.config_validation as cv
 from homeassistant.const import (
-    CONF_PASSWORD, CONF_SCAN_INTERVAL, CONF_USERNAME)
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import discovery
+	CONF_NAME,
+	CONF_PASSWORD,
+
+	CONF_SCAN_INTERVAL,
+	CONF_USERNAME,
+)
+
+
+from homeassistant.helpers.dispatcher import (
+	async_dispatcher_connect,
+    dispatcher_send
+)
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.event import (
-    track_point_in_utc_time, track_time_interval)
-from homeassistant.util import dt as dt_util
+from homeassistant.helpers.event import track_time_interval
+from homeassistant.helpers.event import track_point_in_utc_time
+from homeassistant.util.dt import utcnow
 
-REQUIREMENTS = ['tesla_api==1.0.7']
+DOMAIN = 'jlrincontrol'
 
-DATA_MANAGER = 'data_manager'
-DOMAIN = 'tesla_cc'
-PLATFORM_ID = 'tesla_cc_{}'
-VEHICLE_UPDATED = 'tesla_vehicle_updated'
+DATA_KEY = DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = vol.Schema({
-    DOMAIN: vol.Schema({
-        vol.Required(CONF_USERNAME): cv.string,
-        vol.Required(CONF_PASSWORD): cv.string,
-        vol.Optional(CONF_SCAN_INTERVAL, default=300): vol.All(
-            cv.positive_int, vol.Clamp(min=300), cv.time_period)
-    }),
-}, extra=vol.ALLOW_EXTRA)
+MIN_UPDATE_INTERVAL = timedelta(minutes=1)
+DEFAULT_UPDATE_INTERVAL = timedelta(minutes=1)
+SIGNAL_VEHICLE_SEEN = '{}.vehicle_seen'.format(DOMAIN)
 
-TESLA_PLATFORMS = ['climate', 'device_tracker', 'sensor', 'switch']
 
-def setup(hass, base_config):
-    """Set up of Tesla component."""
-    from tesla_api import TeslaApiClient, AuthenticationError, ApiError
 
-    config = base_config.get(DOMAIN)
+CONF_MUTABLE = 'mutable'
 
-    email = config.get(CONF_USERNAME)
-    password = config.get(CONF_PASSWORD)
-    scan_interval = config.get(CONF_SCAN_INTERVAL)
+SIGNAL_STATE_UPDATED = '{}.updated'.format(DOMAIN)
+"""
+COMPONENTS = {
+    "sensor": "sensor",
+    "binary_sensor": "binary_sensor",
+    "lock": "lock",
+    "device_tracker": "device_tracker",
+    "switch": "switch",
+}
+"""
+RESOURCES = {  """all from  GET get vehicle status  4,15,42,64,78"""
+    'DOOR_IS_ALL_DOORS_LOCKED': ('binary_sensor', 'All Doors Locked', 'mdi:lock', 'lock'),
+	'DOOR_FRONT_LEFT_POSITION': ('binary_sensor', 'Doors front left Locked', 'mdi:lock', ''),
+	'DOOR_REAR_RIGHT_POSITION': ('binary_sensor', 'Doors rear right Locked', 'mdi:lock', ''),
+	'DOOR_FRONT_RIGHT_POSITION': ('binary_sensor', 'Doors front right Locked', 'mdi:lock', ''),	
+	'DOOR_ENGINE_HOOD_POSITION': ('binary_sensor', 'Doors engine hood Locked', 'mdi:lock', ''),	
+	'DOOR_BOOT_POSITION': ('binary_sensor', 'Doors boot Locked', 'mdi:lock', ''),		
+	'DOOR_REAR_LEFT_POSITION': ('binary_sensor', 'Doors rear left Locked', 'mdi:lock', ''),	
+    'DISTANCE_TO_EMPTY_FUEL': ('sensor', 'Range', 'mdi:road', 'km'), 
+	'EXT_KILOMETERS_TO_SERVICE': ('sensor', 'Distance to next service','mdi:garage', 'km'),	
+    'FUEL_LEVEL_PERC': ('sensor', 'Fuel level', 'mdi:fuel', '%'),
+	'ODOMETER_METER': ('sensor', 'Odometer', 'mdi:car', 'km'),
+	'THEFT_ALARM_STATUS': ('sensor', 'Alarm', 'mdi:alarm', ''),
+}
 
-    api_client = TeslaApiClient(email, password)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONFIG_SCHEMA = vol.Schema(
+	{
+		DOMAIN: vol.Schema(
+			{
+				vol.Required(CONF_USERNAME): cv.string,
+				vol.Required(CONF_PASSWORD): cv.string,
+				vol.Optional(
+					CONF_SCAN_INTERVAL, default=DEFAULT_UPDATE_INTERVAL
+				): vol.All(cv.time_period, vol.Clamp(min=MIN_UPDATE_INTERVAL)),
+				vol.Required(CONF_NAME): vol.Schema(
+					{cv.slug: cv.string}),
+
+					
+					
+					
+					
+					
+					
+					
+			}
+		)
+	},
+	extra=vol.ALLOW_EXTRA,
+)
+
+
+def setup(hass, config):
+    """Set up the jlrpy component."""
+
+    username = config[DOMAIN][CONF_USERNAME]
+    password = config[DOMAIN][CONF_PASSWORD]
+
+    state = hass.data[DATA_KEY] = JLRData(hass, config)
+
+    interval = config[DOMAIN][CONF_SCAN_INTERVAL]
 
     try:
-        _LOGGER.info('Initializing Tesla data manager')
-        vehicles = api_client.list_vehicles()
-        data_manager = TeslaDataManager(hass, vehicles, scan_interval)
-
-        hass.data[DOMAIN] = {
-            DATA_MANAGER: data_manager
-        }
-
-        _LOGGER.info('Tesla data manager intialized')
-        _LOGGER.debug('Connected to the Tesla API, found {} vehicles.'.format(len(vehicles)))
-    except AuthenticationError as ex:
-        _LOGGER.error(ex.message)
-        return False
-    except ApiError as ex:
-        _LOGGER.error(ex.message)
+        connection = jlrpy.Connection(username, password)
+    except urllib.error.HTTPError:
+        _LOGGER.error("Could not connect to JLR. Please check your credentials")
         return False
 
-    for platform in TESLA_PLATFORMS:
-        discovery.load_platform(hass, platform, DOMAIN, None, base_config)
+    vehicles = []
+    for vehicle in connection.vehicles:
+        vehicle.info = vehicle.get_status()
+        vehicles.append(vehicle)
+
+
+	def discover_vehicle(vehicle):
+
+        state.entities[vehicle.vin] = []
+
+        for attr, (component, *_) in RESOURCES.items():
+            hass.helpers.discovery.load_platform(
+                component, DOMAIN, (vehicle.vin, attr), config
+            )
+
+    def update_vehicle(vehicle):
+        """Update information on vehicle."""
+        _LOGGER.info("Pulling info from JLR")
+
+        state.vehicles[vehicle.vin] = vehicle
+        if vehicle.vin not in state.entities:
+            discover_vehicle(vehicle)
+        #
+        # for entity in state.entities[vehicle.vin]:
+        #     entity.schedule_update_ha_state()
+    #
+    #     dispatcher_send(hass, SIGNAL_VEHICLE_SEEN, vehicle)
+    #
+    # def update(now):
+    #     """Update status from the online service."""
+    #     try:
+    #         for vehicle in vehicles:
+    #             update_vehicle(vehicle)
+    #         return True
+    #     except urllib.error.HTTPError:
+    #         _LOGGER.error("Could not update vehicle status")
+    #         return False
+    #     finally:
+    #         track_point_in_utc_time(hass, update,
+    #                                 utcnow() + interval)
+    #
+    # return update(utcnow())
+
+    try:
+        for vehicle in vehicles:
+            update_vehicle(vehicle)
+        #return True
+    except urllib.error.HTTPError:
+        _LOGGER.error("Could not update vehicle status")
+        #return False
+
+    state.update(now=None)
+
+    track_time_interval(
+        hass, state.update, interval
+    )
 
     return True
 
-class TeslaDevice(Entity):
-    def __init__(self, hass, data_manager, vehicle):
-        self._data_manager = data_manager
-        self._vehicle = vehicle
-        self._data = None
 
-        hass.bus.listen(VEHICLE_UPDATED, self._vehicle_updated)
+class JLRData:
+    """Hold component state."""
 
-    def _vehicle_updated(self, event):
-        if event.data.get('vin') != self._vehicle.vin:
-            return
+    def __init__(self, hass, config):
+        """Initialize the component state."""
+        self.vehicles = {}
 
-        self.update()
+        self.config = config[DOMAIN]
+        self.names = self.config.get(CONF_NAME)		
+        self._hass = hass
+        self.entities = {}
 
-        try:
-            self.schedule_update_ha_state()
-        except:
-            pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+	def vehicle_name(self, vehicle):
+        """Provide a friendly name for a vehicle."""
+        if not vehicle:
+            return None
+        elif vehicle.vin and vehicle.vin.lower() in self.names:
+            return self.names[vehicle.vin.lower()]
+
+
+
+
+		if vehicle.vin:
+            return vehicle.vin
+        return ''
+
+    def update(self, now, **kwargs):
+        _LOGGER.info("Updating vehicle data")
+        #for vehicle in self.vehicles:
+
+        for vehicle in self.vehicles:
+            self.vehicles[vehicle].get_status()
+        dispatcher_send(self._hass, SIGNAL_STATE_UPDATED)
+
+
+class JLREntity(Entity):
+    """Base class for all JLR Vehicle entities."""
+
+    def __init__(self, hass, vin, attribute):
+        """Initialize the entity."""
+        self._data = self._hass.data[DATA_KEY]
+	    self._vin = vin
+		
+        self._attribute = attribute		
+        self._hass = hass
+        self._vehicle = self._hass.data[DATA_KEY].vehicles[self._vin]
+        self._name = self._data.vehicle_name(self.vehicle)
+
+    @staticmethod
+    def get_vehicle_status(vehicle_status):
+        """Converts a weird quasi-dict returned by jlrpy into a proper dict"""
+        dict_only = {}
+        for element in vehicle_status:
+            if element.get('key'):
+                dict_only[element.get('key')] = element.get('value')
+        return dict_only
+
+    def get_updated_info(self):
+        return self.get_vehicle_status(
+            self.vehicle.info.get('vehicleStatus')
+        )
 
     def update(self):
-        self._data = self._data_manager.data[self._vehicle.vin]
-
-    def _schedule_update(self, update_action):
-        track_point_in_utc_time(self.hass,
-            lambda now: update_action(self._vehicle, True),
-            dt_util.utcnow() + timedelta(seconds=5))
-
-def update_wrapper(func):
-    def wrapper(self, vehicle, fire_event):
-        from tesla_api import ApiError
-
-        try:
-            func(self, vehicle, fire_event)
-        except ApiError:
-            wrapper(self, vehicle, fire_event)
-            return
-
-        if fire_event:
-            self._hass.bus.fire(VEHICLE_UPDATED, {'vin': vehicle.vin})
-
-    return wrapper
-
-"""TeslaDataManager will make sure we do not call the Tesla API too often."""
-class TeslaDataManager:
-    def __init__(self, hass, vehicles, scan_interval):
-        self._hass = hass
-        self._vehicles = vehicles
-        self._data = {}
-
-        for vehicle in vehicles:
-            self._data[vehicle.vin] = {}
-
-        self._update()
-        track_time_interval(hass, lambda now: self._update(), scan_interval)
-
-    def _update(self):
-        for vehicle in self._vehicles:
-            self.update_vehicle(vehicle)
-
-    def update_vehicle(self, vehicle):
-        from tesla_api import ApiError
-
-        try:
-            vehicle.wake_up()
-            self.update_charge(vehicle, False)
-            self.update_climate(vehicle, False)
-            self.update_drive(vehicle, False)
-            self.update_gui(vehicle, False)
-            self.update_state(vehicle, False)
-
-            self._hass.bus.fire(VEHICLE_UPDATED, {'vin': vehicle.vin})
-
-            _LOGGER.debug('Updated data for {}'.format(vehicle.vin))
-        except ApiError:
-            self.update_vehicle(vehicle)
-
-    @update_wrapper
-    def update_charge(self, vehicle, fire_event=True):
-        self._data[vehicle.vin]['charge'] = vehicle.charge.get_state()
-
-    @update_wrapper
-    def update_climate(self, vehicle, fire_event=True):
-        self._data[vehicle.vin]['climate'] = vehicle.climate.get_state()
-
-    @update_wrapper
-    def update_drive(self, vehicle, fire_event=True):
-        self._data[vehicle.vin]['drive'] = vehicle.get_drive_state()
-
-    @update_wrapper
-    def update_gui(self, vehicle, fire_event=True):
-        self._data[vehicle.vin]['gui'] = vehicle.get_gui_settings()
-
-    @update_wrapper
-    def update_state(self, vehicle, fire_event=True):
-        self._data[vehicle.vin]['state'] = vehicle.get_state()
+        _LOGGER.info("UPDATING NOW")
 
     @property
-    def data(self):
-        return self._data
+    def vehicle(self):
+        """Return vehicle."""
+        return self._vehicle
 
     @property
-    def vehicles(self):
-        return self._vehicles
+    def _entity_name(self):
+        return RESOURCES[self._attribute][1]
+
+
+
+
+
+	@property
+    def name(self):
+        """Return full name of the entity."""
+        if self._name:
+            return '{} {}'.format(
+                self._name,
+                self._entity_name)
+        else:
+            return '{}'.format(
+                self._entity_name
+            )
+
+    @property
+    def should_poll(self):
+        """Return the polling state."""
+        return False
+
+    @property
+    def assumed_state(self):
+        """Return true if unable to access real state of entity."""
+        return True
+
+    @property
+    def device_state_attributes(self):
+        """Return device specific state attributes."""
+        vehicle_attr = self.vehicle.get_attributes()
+        return dict(model='{} {} {}'.format(vehicle_attr['modelYear'],
+                                            vehicle_attr['vehicleBrand'],
+                                            vehicle_attr['vehicleType']))
