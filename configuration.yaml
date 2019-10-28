@@ -1,1 +1,5 @@
-tesla_cc: !include tesla.yaml
+jlrincontrol:
+  username: 'email@domain.com'
+  password: 'hunter2'
+  name:
+    vehiclevinhere: 'Some name for your car'
