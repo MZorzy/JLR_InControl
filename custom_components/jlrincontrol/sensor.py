@@ -31,13 +31,15 @@ class JLRSensor(JLREntity):
         else:
             return None
 
-        if self._attribute in ['last_connected', 'service_inspection',
-                               'oil_inspection', 'THEFT_ALARM_STATUS']:
-
+        if self._attribute in [
+            "last_connected",
+            "service_inspection",
+            "oil_inspection",
+            "THEFT_ALARM_STATUS",
+        ]:
             return str(val)
-        if self._attribute in ['ODOMETER_METER']:
-            return float(int(int(val) / 1000))
-
+        if self._attribute in ["ODOMETER_METER"]:
+            return int(float(int(val) / 1000))
 
         return int(float(val))
 
@@ -45,8 +47,12 @@ class JLRSensor(JLREntity):
         _LOGGER.info("Updating here xxxxxxxxxxxxx")
 
     async def async_added_to_hass(self):
-        _LOGGER.info("CONNECTING TO DISPATCHER ==============================================")
-        async_dispatcher_connect(self.hass, SIGNAL_STATE_UPDATED, self._schedule_immediate_update)
+        _LOGGER.info(
+            "CONNECTING TO DISPATCHER =============================================="
+        )
+        async_dispatcher_connect(
+            self.hass, SIGNAL_STATE_UPDATED, self._schedule_immediate_update
+        )
 
     @property
     def unit_of_measurement(self):

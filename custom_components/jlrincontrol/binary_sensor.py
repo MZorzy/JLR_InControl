@@ -3,7 +3,7 @@ import logging
 
 from homeassistant.components.binary_sensor import BinarySensorDevice
 
-from . import JLREntity, RESOURCES
+from . import RESOURCES, JLREntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,8 +30,8 @@ class JLRSensor(JLREntity, BinarySensorDevice):
         else:
             return None
 
-        if self._attribute in ['DOOR_IS_ALL_DOORS_LOCKED']:
-            return bool(val == 'FALSE')
+        if self._attribute in ["DOOR_IS_ALL_DOORS_LOCKED"]:
+            return bool(val == "FALSE")
 
         return val
 
