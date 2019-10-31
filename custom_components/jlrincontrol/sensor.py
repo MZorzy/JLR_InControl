@@ -1,13 +1,10 @@
 """Support for JLR InControl sensors."""
 import logging
 
-from . import JLREntity, RESOURCES
-
-from . import (
-    SIGNAL_STATE_UPDATED
-)
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+from . import RESOURCES, SIGNAL_STATE_UPDATED, JLREntity
 
 _LOGGER = logging.getLogger(__name__)
 
