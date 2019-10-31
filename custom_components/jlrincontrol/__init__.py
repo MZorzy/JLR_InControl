@@ -1,124 +1,68 @@
 """Support for Jaguar/Land Rover InControl services."""
 import logging
-from datetime import timedelta
 import urllib.error
-import voluptuous as vol
-import jlrpy
-from homeassistant.core import callback
+from datetime import timedelta
+
 import homeassistant.helpers.config_validation as cv
-from homeassistant.const import (
-	CONF_NAME,
-	CONF_PASSWORD,
-
-	CONF_SCAN_INTERVAL,
-	CONF_USERNAME,
-)
-
-
-from homeassistant.helpers.dispatcher import (
-	async_dispatcher_connect,
-    dispatcher_send
-)
+import jlrpy
+import voluptuous as vol
+from homeassistant.const import (CONF_NAME, CONF_PASSWORD, CONF_SCAN_INTERVAL,
+				 CONF_USERNAME)  
+from homeassistant.core import callback
+from homeassistant.helpers.dispatcher import (async_dispatcher_connect,
+					      dispatcher_send)
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.event import track_time_interval
-from homeassistant.helpers.event import track_point_in_utc_time
+from homeassistant.helpers.event import (track_point_in_utc_time,
+					 track_time_interval)
 from homeassistant.util.dt import utcnow
-
-DOMAIN = 'jlrincontrol'
-
-DATA_KEY = DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-MIN_UPDATE_INTERVAL = timedelta(minutes=1)
-DEFAULT_UPDATE_INTERVAL = timedelta(minutes=1)
+DOMAIN = 'jlrincontrol'
 SIGNAL_VEHICLE_SEEN = '{}.vehicle_seen'.format(DOMAIN)
-
-
-
+DATA_KEY = DOMAIN
 CONF_MUTABLE = 'mutable'
 
-SIGNAL_STATE_UPDATED = '{}.updated'.format(DOMAIN)
-"""
-COMPONENTS = {
-    "sensor": "sensor",
-    "binary_sensor": "binary_sensor",
-    "lock": "lock",
-    "device_tracker": "device_tracker",
-    "switch": "switch",
-}
-"""
-RESOURCES = {  """all from  GET get vehicle status  4,15,42,64,78"""
-    'DOOR_IS_ALL_DOORS_LOCKED': ('binary_sensor', 'All Doors Locked', 'mdi:lock', 'lock'),
-	'DOOR_FRONT_LEFT_POSITION': ('binary_sensor', 'Doors front left Locked', 'mdi:lock', ''),
-	'DOOR_REAR_RIGHT_POSITION': ('binary_sensor', 'Doors rear right Locked', 'mdi:lock', ''),
-	'DOOR_FRONT_RIGHT_POSITION': ('binary_sensor', 'Doors front right Locked', 'mdi:lock', ''),	
-	'DOOR_ENGINE_HOOD_POSITION': ('binary_sensor', 'Doors engine hood Locked', 'mdi:lock', ''),	
-	'DOOR_BOOT_POSITION': ('binary_sensor', 'Doors boot Locked', 'mdi:lock', ''),		
-	'DOOR_REAR_LEFT_POSITION': ('binary_sensor', 'Doors rear left Locked', 'mdi:lock', ''),	
-    'DISTANCE_TO_EMPTY_FUEL': ('sensor', 'Range', 'mdi:road', 'km'), 
-	'EXT_KILOMETERS_TO_SERVICE': ('sensor', 'Distance to next service','mdi:garage', 'km'),	
+MIN_UPDATE_INTERVAL = timedelta(minutes=1)
+DEFAULT_UPDATE_INTERVAL = timedelta(minutes=1)
+
+RESOURCES = {
     'FUEL_LEVEL_PERC': ('sensor', 'Fuel level', 'mdi:fuel', '%'),
-	'ODOMETER_METER': ('sensor', 'Odometer', 'mdi:car', 'km'),
-	'THEFT_ALARM_STATUS': ('sensor', 'Alarm', 'mdi:alarm', ''),
+    'DISTANCE_TO_EMPTY_FUEL': ('sensor', 'Range', 'mdi:road', 'km'),
+    'EXT_KILOMETERS_TO_SERVICE': ('sensor', 'Distance to next service', 'mdi:garage', 'km'),
+    'ODOMETER_METER': ('sensor', 'Odometer', 'mdi:car', 'km'),
+    'THEFT_ALARM_STATUS': ('sensor', 'Alarm', 'mdi:car-key', ''),
+    'DOOR_IS_ALL_DOORS_LOCKED': ('binary_sensor', 'All Doors Locked', 'mdi:car-door-lock', 'lock'),
+    'DOOR_FRONT_LEFT_POSITION': ('binary_sensor', 'Doors front left position', 'mdi:car-door', ''),
+    'DOOR_FRONT_RIGHT_POSITION': ('binary_sensor', 'Doors front right position', 'mdi:car-door', ''),
+    'DOOR_REAR_LEFT_POSITION': ('binary_sensor', 'Doors rear left position', 'mdi:car-door', ''),
+    'DOOR_REAR_RIGHT_POSITION': ('binary_sensor', 'Doors rear right position', 'mdi:car-door', ''),
+    'DOOR_ENGINE_HOOD_POSITION': ('binary_sensor', 'Doors engine hood position', 'mdi:lock', ''),
+    'DOOR_BOOT_POSITION': ('binary_sensor', 'Doors boot position', 'mdi:lock', ''),
+    'DOOR_FRONT_LEFT_LOCK_STATUS': ('binary_sensor', 'Doors front left Locked', 'mdi:car-door-lock', ''),
+    'DOOR_FRONT_RIGHT_LOCK_STATUS': ('binary_sensor', 'Doors front right Locked', 'mdi:car-door-lock', ''),
+    'DOOR_REAR_LEFT_LOCK_STATUS': ('binary_sensor', 'Doors rear left Locked', 'mdi:car-door-lock', ''),
+    'DOOR_REAR_RIGHT_LOCK_STATUS': ('binary_sensor', 'Doors rear right Locked', 'mdi:car-door-lock', ''),
+    'DOOR_ENGINE_HOOD_LOCK_STATUS': ('binary_sensor', 'Doors engine hood Locked', 'mdi:lock', ''),
+    'DOOR_BOOT_LOCK_STATUS': ('binary_sensor', 'Doors boot Locked', 'mdi:lock', ''),
+    'TYRE_PRESSURE_FRONT_LEFT': ('sensor', 'Tyre Pressure front left', 'mdi:car-tire-alert', 'bar'),
+    'TYRE_PRESSURE_FRONT_RIGHT': ('sensor', 'Tyre Pressure front right', 'mdi:car-tire-alert', 'bar'),
+    'TYRE_PRESSURE_REAR_LEFT': ('sensor', 'Tyre Pressure rear left', 'mdi:car-tire-alert', 'bar'),
+    'TYRE_PRESSURE_REAR_RIGHT': ('sensor', 'Tyre Pressure rear right', 'mdi:car-tire-alert', 'bar'),
 }
 
+SIGNAL_STATE_UPDATED = '{}.updated'.format(DOMAIN)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-CONFIG_SCHEMA = vol.Schema(
-	{
-		DOMAIN: vol.Schema(
-			{
-				vol.Required(CONF_USERNAME): cv.string,
-				vol.Required(CONF_PASSWORD): cv.string,
-				vol.Optional(
-					CONF_SCAN_INTERVAL, default=DEFAULT_UPDATE_INTERVAL
-				): vol.All(cv.time_period, vol.Clamp(min=MIN_UPDATE_INTERVAL)),
-				vol.Required(CONF_NAME): vol.Schema(
-					{cv.slug: cv.string}),
-
-					
-					
-					
-					
-					
-					
-					
-			}
-		)
-	},
-	extra=vol.ALLOW_EXTRA,
-)
-
+CONFIG_SCHEMA = vol.Schema({
+    DOMAIN: vol.Schema({
+        vol.Required(CONF_USERNAME): cv.string,
+        vol.Required(CONF_PASSWORD): cv.string,
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_UPDATE_INTERVAL):
+            vol.All(cv.time_period, vol.Clamp(min=MIN_UPDATE_INTERVAL)),
+        vol.Required(CONF_NAME): vol.Schema(
+            {cv.slug: cv.string}),
+    })
+}, extra=vol.ALLOW_EXTRA)
 
 def setup(hass, config):
     """Set up the jlrpy component."""
@@ -141,9 +85,7 @@ def setup(hass, config):
         vehicle.info = vehicle.get_status()
         vehicles.append(vehicle)
 
-
-	def discover_vehicle(vehicle):
-
+    def discover_vehicle(vehicle):
         state.entities[vehicle.vin] = []
 
         for attr, (component, *_) in RESOURCES.items():
@@ -201,38 +143,22 @@ class JLRData:
 
     def __init__(self, hass, config):
         """Initialize the component state."""
-        self.vehicles = {}
-
-        self.config = config[DOMAIN]
-        self.names = self.config.get(CONF_NAME)		
         self._hass = hass
         self.entities = {}
+        self.vehicles = {}
+        self.config = config[DOMAIN]
+        self.names = self.config.get(CONF_NAME)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-	def vehicle_name(self, vehicle):
+    def vehicle_name(self, vehicle):
         """Provide a friendly name for a vehicle."""
         if not vehicle:
             return None
         elif vehicle.vin and vehicle.vin.lower() in self.names:
             return self.names[vehicle.vin.lower()]
 
-
-
-
-		if vehicle.vin:
+        if vehicle.vin:
             return vehicle.vin
+
         return ''
 
     def update(self, now, **kwargs):
@@ -249,11 +175,10 @@ class JLREntity(Entity):
 
     def __init__(self, hass, vin, attribute):
         """Initialize the entity."""
-        self._data = self._hass.data[DATA_KEY]
-	    self._vin = vin
-		
-        self._attribute = attribute		
         self._hass = hass
+        self._vin = vin
+        self._attribute = attribute
+        self._data = self._hass.data[DATA_KEY]
         self._vehicle = self._hass.data[DATA_KEY].vehicles[self._vin]
         self._name = self._data.vehicle_name(self.vehicle)
 
@@ -283,11 +208,7 @@ class JLREntity(Entity):
     def _entity_name(self):
         return RESOURCES[self._attribute][1]
 
-
-
-
-
-	@property
+    @property
     def name(self):
         """Return full name of the entity."""
         if self._name:
