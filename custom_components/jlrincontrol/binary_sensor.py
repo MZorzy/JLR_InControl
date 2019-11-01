@@ -30,7 +30,10 @@ class JLRSensor(JLREntity, BinarySensorDevice):
         else:
             return None
 
-        if self._attribute in ["DOOR_IS_ALL_DOORS_LOCKED"]:
+        if self._attribute in [
+            "DOOR_IS_ALL_DOORS_LOCKED",
+            "IS_SUNROOF_OPEN"
+        ]:
             return bool(val == "FALSE")
 
         return val
