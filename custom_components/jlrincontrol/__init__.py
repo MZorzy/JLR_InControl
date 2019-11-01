@@ -37,7 +37,9 @@ RESOURCES = {
         "mdi:garage",
         "km",
     ),
-    "ODOMETER_METER": ("sensor", "Odometer", "mdi:car", "km"),
+    "ODOMETER_METER": ("sensor", "Odometer meter", "mdi:car", "m"),
+    "ODOMETER_MILES": ("sensor", "Odometer miles", "mdi:car", "mi"),
+    "ODOMETER": ("sensor", "Odometer", "mdi:car", "m"),
     "THEFT_ALARM_STATUS": ("sensor", "Alarm", "mdi:car-key", ""),
     "DOOR_IS_ALL_DOORS_LOCKED": (
         "binary_sensor",
@@ -131,6 +133,17 @@ RESOURCES = {
         "mdi:car-tire-alert",
         "bar",
     ),
+    "WASHER_FLUID_WARN": ("sensor", "Washer fluid warn", "mdi:wiper-wash", ""),
+    "BRAKE_FLUID_WARN": ("sensor", "Brake fluid warn", "mdi:car-brake-alert", ""),
+    "EXT_OIL_LEVEL_WARN": ("sensor", "Ext oil level warn", "mdi:oil", ""),
+    "ENG_COOLANT_LEVEL_WARN": ("sensor", "Eng coolant level warn", "mdi:car-coolant-level", ""),
+
+    "WINDOW_FRONT_LEFT_STATUS": ("sensor", "Window front left status", "mdi:car-door", ""),
+    "WINDOW_FRONT_RIGHT_STATUS": ("sensor", "Window front right status", "mdi:car-door", ""),
+    "WINDOW_REAR_LEFT_STATUS": ("sensor", "Window rear left status", "mdi:car-door", ""),
+    "WINDOW_REAR_RIGHT_STATUS": ("sensor", "Window rear right status", "mdi:car-door", ""),
+    
+    "IS_SUNROOF_OPEN": ("binary_sensor","Sunroof open","mdi:car","",),
 }
 
 SIGNAL_STATE_UPDATED = "{}.updated".format(DOMAIN)
