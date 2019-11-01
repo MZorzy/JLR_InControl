@@ -36,12 +36,27 @@ class JLRSensor(JLREntity):
             "service_inspection",
             "oil_inspection",
             "THEFT_ALARM_STATUS",
+            "DOOR_FRONT_LEFT_POSITION",
+            "WASHER_FLUID_WARN","BRAKE_FLUID_WARN","EXT_OIL_LEVEL_WARN","ENG_COOLANT_LEVEL_WARN",
+            "WINDOW_FRONT_LEFT_STATUS","WINDOW_FRONT_RIGHT_STATUS","WINDOW_REAR_LEFT_STATUS","WINDOW_REAR_RIGHT_STATUS",
+            "DOOR_FRONT_LEFT_POSITION","DOOR_FRONT_RIGHT_POSITION","DOOR_REAR_LEFT_POSITION","DOOR_REAR_RIGHT_POSITION",
         ]:
             return str(val)
+
+        if self._attribute in [
+            "DISTANCE_TO_EMPTY_FUEL",
+            "ODOMETER_MILES","ODOMETER",
+            "EXT_KILOMETERS_TO_SERVICE",
+            "TYRE_PRESSURE_FRONT_LEFT","TYRE_PRESSURE_FRONT_RIGHT","TYRE_PRESSURE_REAR_LEFT","TYRE_PRESSURE_REAR_RIGHT",
+            "FUEL_LEVEL_PERC",
+        ]:
+            return int(float(val))
+
         if self._attribute in ["ODOMETER_METER"]:
             return int(float(int(val) / 1000))
 
         return int(float(val))
+
 
     def update(self):
         _LOGGER.info("Updating here xxxxxxxxxxxxx")
