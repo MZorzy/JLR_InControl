@@ -146,7 +146,7 @@ RESOURCES = {
     "IS_SUNROOF_OPEN": ("binary_sensor","is sunroof open","mdi:car","",),
 }
 
-SIGNAL_STATE_UPDATED = "{}.updated".format(DOMAIN)
+SIGNAL_STATE_UPDATED = f"{DOMAIN}.updated"
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -310,9 +310,9 @@ class JLREntity(Entity):
     def name(self):
         """Return full name of the entity."""
         if self._name:
-            return "{} {}".format(self._name, self._entity_name)
+            return f"{self._name} {self._entity_name}"
         else:
-            return "{}".format(self._entity_name)
+            return f"{self._entity_name}"
 
     @property
     def should_poll(self):
