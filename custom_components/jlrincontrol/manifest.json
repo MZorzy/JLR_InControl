@@ -3,7 +3,7 @@
   "name": "JLRIncontrol",
   "documentation": "https://www.home-assistant.io/components/jlrincontrol",
   "requirements": [
-    "jlrpy==1.2.0"
+    "jlrpy==1.3.1"
   ],
   "dependencies": [],
   "codeowners": []
