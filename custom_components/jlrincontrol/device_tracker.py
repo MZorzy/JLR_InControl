@@ -1,6 +1,4 @@
-
-Learn more
-"""Support for tracking a Volvo."""
+"""Support for tracking a JLR."""
 import logging
 
 from homeassistant.components.device_tracker import SOURCE_TYPE_GPS
@@ -18,7 +16,7 @@ async def async_setup_scanner(hass, config, async_see, discovery_info=None):
         return
 
     p = v.get_position()
-    gps_position = (p['position']['latitude'], p['position']['longitude'])
+    gps_position = (p["position"]["latitude"], p["position"]["longitude"])
 
     async def see_vehicle():
         """Handle the reporting of the vehicle position."""
