@@ -6,16 +6,14 @@ from datetime import timedelta
 import homeassistant.helpers.config_validation as cv
 import jlrpy
 import voluptuous as vol
-from homeassistant.const import (
-    CONF_NAME,
-    CONF_PASSWORD,
-    CONF_SCAN_INTERVAL,
-    CONF_USERNAME,
-)
+from homeassistant.const import (CONF_NAME, CONF_PASSWORD, CONF_SCAN_INTERVAL,
+                                 CONF_USERNAME)
 from homeassistant.core import callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
+from homeassistant.helpers.dispatcher import (async_dispatcher_connect,
+                                              dispatcher_send)
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.event import track_point_in_utc_time, track_time_interval
+from homeassistant.helpers.event import (track_point_in_utc_time,
+                                         track_time_interval)
 from homeassistant.util.dt import utcnow
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,14 +134,37 @@ RESOURCES = {
     "WASHER_FLUID_WARN": ("sensor", "washer fluid warn", "mdi:wiper-wash", ""),
     "BRAKE_FLUID_WARN": ("sensor", "brake fluid warn", "mdi:car-brake-alert", ""),
     "EXT_OIL_LEVEL_WARN": ("sensor", "ext oil level warn", "mdi:oil", ""),
-    "ENG_COOLANT_LEVEL_WARN": ("sensor", "eng coolant level warn", "mdi:car-coolant-level", ""),
-
-    "WINDOW_FRONT_LEFT_STATUS": ("sensor", "window front left status", "mdi:car-door", ""),
-    "WINDOW_FRONT_RIGHT_STATUS": ("sensor", "window front right status", "mdi:car-door", ""),
-    "WINDOW_REAR_LEFT_STATUS": ("sensor", "window rear left status", "mdi:car-door", ""),
-    "WINDOW_REAR_RIGHT_STATUS": ("sensor", "window rear right status", "mdi:car-door", ""),
-    
-    "IS_SUNROOF_OPEN": ("binary_sensor","is sunroof open","mdi:car","",),
+    "ENG_COOLANT_LEVEL_WARN": (
+        "sensor",
+        "eng coolant level warn",
+        "mdi:car-coolant-level",
+        "",
+    ),
+    "WINDOW_FRONT_LEFT_STATUS": (
+        "sensor",
+        "window front left status",
+        "mdi:car-door",
+        "",
+    ),
+    "WINDOW_FRONT_RIGHT_STATUS": (
+        "sensor",
+        "window front right status",
+        "mdi:car-door",
+        "",
+    ),
+    "WINDOW_REAR_LEFT_STATUS": (
+        "sensor",
+        "window rear left status",
+        "mdi:car-door",
+        "",
+    ),
+    "WINDOW_REAR_RIGHT_STATUS": (
+        "sensor",
+        "window rear right status",
+        "mdi:car-door",
+        "",
+    ),
+    "IS_SUNROOF_OPEN": ("binary_sensor", "is sunroof open", "mdi:car", "",),
 }
 
 SIGNAL_STATE_UPDATED = f"{DOMAIN}.updated"
